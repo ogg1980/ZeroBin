@@ -178,7 +178,7 @@ if (!trafic_limiter_canPass($_SERVER['REMOTE_ADDR']))
 
 // Make sure content is not too big.
 $data = $_POST['data'];
-if (strlen($data) > 20*1024)
+if (strlen($data) > 20*1024*1024)
 {
     echo json_encode(array('status'=>1,'message'=>'Paste is limited to 20MB of encrypted data.'));
     exit; 
