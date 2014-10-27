@@ -202,6 +202,13 @@ function applySyntaxColoring() {
     $('div#cleartext').css('padding', '0'); // Remove white padding around code box.
 }
 
+function addLineNumbers() {
+    cleartext = $('div#cleartext > pre > code');
+    newtext = cleartext.html()
+        .replace( /(\r?\n)/g, "</li>$1<li class=\"line\">");
+    newtext = "<ol><li class=\"line\">" + newtext + "</li></ol>";
+    cleartext.html(newtext);
+}
 
 /**
  * Show decrypted text in the display area, including discussion (if open)
@@ -258,6 +265,8 @@ function displayMessages(key, comments) {
 
     if (comments[0].meta.syntaxcoloring)
         applySyntaxColoring();
+        addLineNumbers();
+    }
 
     // Display paste expiration.
     if (comments[0].meta.expire_date)

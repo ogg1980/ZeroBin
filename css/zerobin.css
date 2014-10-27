@@ -370,3 +370,25 @@ pre a:hover {
 #attachfile input[type=file],a{border:0px;color:#fff;}
 #uploadPreview{ position:absolute;z-index:1;margin:10px 7px; border:4px solid #eee;max-width:900px;max-height:400px}
 #downloadButton{padding:7px;}
+/*
+pre {
+  counter-reset: lines;
+}
+
+pre .line {
+  counter-increment: lines;
+}
+
+pre .line::before {
+  content: counter(lines); text-align: right;
+  display: inline-block; width: 2em;
+  padding-right: 0.5em; margin-right: 0.5em;
+  color: #BBB; border-right: solid 1px;
+}
+*/
+pre ol {
+list-style:decimal outside none;
+}
+pre ol li {
+font-weight: normal; vertical-align:top;
+}
