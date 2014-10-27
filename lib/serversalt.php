@@ -6,7 +6,7 @@ function generateRandomSalt()
     $randomSalt='';
     if (function_exists("mcrypt_create_iv"))
     {
-        $randomSalt = bin2hex(mcrypt_create_iv(256, MCRYPT_DEV_URANDOM));
+        $randomSalt = bin2hex(mcrypt_create_iv(256, MCRYPT_DEV_RANDOM));
     }
     else // fallback to mt_rand()
     {
@@ -30,7 +30,6 @@ function getServerSalt()
         file_put_contents($saltfile,'<?php /* |'.generateRandomSalt().'| */ ?>',LOCK_EX);
     $items=explode('|',file_get_contents($saltfile));
     return $items[1];
-
 }
 
 ?>
