@@ -203,6 +203,7 @@ function applySyntaxColoring() {
 }
 
 function addLineNumbers() {
+	return;
     cleartext = $('div#cleartext > pre > code');
     newtext = cleartext.html()
         .replace( /(\r?\n)/g, "</li>$1<li class=\"line\">");
@@ -264,10 +265,11 @@ function displayMessages(key, comments) {
     // comments[0] is the paste itself.
 
     if (comments[0].meta.syntaxcoloring)
-        applySyntaxColoring();
-        addLineNumbers();
-    }
+    {
+        applySyntaxColoring();	
+                addLineNumbers();
 
+    }
     // Display paste expiration.
     if (comments[0].meta.expire_date)
         $('div#remainingtime').removeClass('foryoureyesonly').text('This document will expire in ' + secondsToHuman(comments[0].meta.remaining_time) + '.').show();
@@ -322,7 +324,6 @@ function displayMessages(key, comments) {
         $('div#discussion').show();
     }
 }
-
 /**
  * Open the comment entry when clicking the "Reply" button of a comment.
  * @param object source : element which emitted the event.
