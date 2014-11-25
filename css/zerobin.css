@@ -26,6 +26,27 @@ body {
 
 a  { color:#0F388F; }
 
+/* unvisited link */
+a:link {
+    color: #2162A6;
+}
+
+/* visited link */
+a:visited {
+    color: #0d2742;
+}
+
+/* mouse over link */
+a:hover {
+    color: #2162a6;
+}
+
+/* selected link */
+a:active {
+    color: #4d81b7;
+}
+
+
 h1 {
     font-size:3.5em;
     font-weight:700;
