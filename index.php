@@ -25,9 +25,15 @@ if ( get_magic_quotes_gpc () )
 
 // trafic_limiter : Make sure the IP address makes at most 1 request every 10 seconds.
 // Will return false if IP address made a call less than 10 seconds ago.
+
+function traffic_limiter_time()
+{
+    return 2;
+}
+
 function trafic_limiter_canPass ( $ip )
 {
-    $timelimit = 2;
+    $timelimit = traffic_limiter_time();
 
     $tfilename = './data/trafic_limiter.php';
     if ( !is_file ( $tfilename ) )
@@ -194,7 +200,7 @@ if ( !empty( $_POST[ 'data' ] ) ) // Create new paste/comment
 // Make sure last paste from the IP address was more than 10 seconds ago.
     if ( !trafic_limiter_canPass ( $_SERVER[ 'REMOTE_ADDR' ] ) )
     {
-        echo json_encode ( array('status' => 1, 'message' => 'Please wait 10 seconds between each post.') );
+        echo json_encode ( array('status' => 1, 'message' => 'Please wait '.traffic_limiter_time().' seconds between each post.') );
         exit;
     }
 
