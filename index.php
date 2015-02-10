@@ -3,7 +3,7 @@
 ZeroBin - a zero-knowledge paste bin
 Please see project page: http://sebsauvage.net/wiki/doku.php?id=php:zerobin
 */
-$VERSION = 'Alpha 0.19.4';
+$VERSION = 'Alpha 0.19.6';
 if ( version_compare ( PHP_VERSION, '5.2.6' ) < 0 ) die( 'ZeroBin requires PHP 5.2.6 or above to work. Sorry.' );
 require_once "lib/serversalt.php";
 require_once "lib/vizhash_gd_zero.php";
