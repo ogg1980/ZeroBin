@@ -202,7 +202,12 @@ if ( !empty( $_POST[ 'data' ] ) ) // Create new paste/comment
 // Create storage directory if it does not exist.
     if ( !is_dir ( 'data' ) )
     {
-        mkdir ( 'data', 0705 );
+        if( !mkdir ( 'data', 0705 ) )
+        {
+            echo json_encode( array( 'status' => 0, 'message' => 'Administrator has not set the write permissions to the paste directory.') );
+            exit;
+        }
+
         file_put_contents ( 'data/.htaccess', "Allow from none\nDeny from all\n", LOCK_EX );
     }
 
