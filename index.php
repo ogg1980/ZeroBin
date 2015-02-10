@@ -1,41 +1,35 @@
 <?php
-/*
-ZeroBin - a zero-knowledge paste bin
-Please see project page: http://sebsauvage.net/wiki/doku.php?id=php:zerobin
-*/
-$VERSION = 'Alpha 0.19.7';
+
 if ( version_compare ( PHP_VERSION, '5.2.6' ) < 0 ) die( 'ZeroBin requires PHP 5.2.6 or above to work. Sorry.' );
+
+$aConfig = array();
+
+$aConfig[ 'version' ]     = "Alpha 0.19.9";
+
+$aConfig[ 'timelimit' ]   = 2;              // One request allowed every X seconds
+$aConfig[ 'salt_append' ] = "_salt.php";    
+$aConfig[ 'data_dir' ]    = "data";
+$aConfig[ 'max_size' ]    = 20;             // Max paste size in MB
+$aConfig[ 'pasteid_len' ] = 16;             
+
+
 require_once "lib/serversalt.php";
 require_once "lib/vizhash_gd_zero.php";
 
-// In case stupid admin has left magic_quotes enabled in php.ini:
-if ( get_magic_quotes_gpc () )
-{
-    function stripslashes_deep ( $value )
-    {
-        $value = is_array ( $value ) ? array_map ( 'stripslashes_deep', $value ) : stripslashes ( $value );
-
-        return $value;
-    }
-
-    $_POST   = array_map ( 'stripslashes_deep', $_POST );
-    $_GET    = array_map ( 'stripslashes_deep', $_GET );
-    $_COOKIE = array_map ( 'stripslashes_deep', $_COOKIE );
-}
-
-// trafic_limiter : Make sure the IP address makes at most 1 request every 10 seconds.
-// Will return false if IP address made a call less than 10 seconds ago.
-
 function traffic_limiter_time()
 {
-    return 2;
+    global $aConfig;
+
+    return $aConfig[ 'timelimit' ];
 }
 
 function trafic_limiter_canPass ( $ip )
 {
+    global $aConfig;
+
     $timelimit = traffic_limiter_time();
 
-    $tfilename = './data/trafic_limiter.php';
+    $tfilename = './'.$aConfig[ 'data_dir' ].'/trafic_limiter.php';
     if ( !is_file ( $tfilename ) )
     {
         file_put_contents ( $tfilename, "<?php\n\$GLOBALS['trafic_limiter']=array();\n?>", LOCK_EX );
@@ -87,7 +81,9 @@ eg. input 'e3570978f9e4aa90' --> output 'data/e3/57/'
 */
 function dataid2path ( $dataid )
 {
-    return 'data/'.substr ( $dataid, 0, 2 ).'/'.substr ( $dataid, 2, 2 ).'/';
+    global $aConfig;
+
+    return $aConfig[ 'data_dir' ].'/'.substr ( $dataid, 0, 2 ).'/'.substr ( $dataid, 2, 2 ).'/';
 }
 
 /* Convert paste id to discussion storage path.
@@ -154,11 +150,13 @@ function validSJCL ( $jsonstring )
 // Input: $pasteid : the paste identifier.
 function deletePaste ( $pasteid )
 {
+    global $aConfig;
+
     $path = dataid2path ( $pasteid );
     $dpath = dataid2discussionpath( $pasteid );
 // Delete the paste itself and the salt
     unlink ( $path.$pasteid );
-    unlink ( $path.$pasteid."_salt.php");
+    unlink ( $path.$pasteid.$aConfig[ 'salt_append' ] );
 
 // Delete discussion if it exists.
     if ( is_dir ( $dpath ) )
@@ -200,15 +198,15 @@ if ( !empty( $_POST[ 'data' ] ) ) // Create new paste/comment
     $error = false;
 
 // Create storage directory if it does not exist.
-    if ( !is_dir ( 'data' ) )
+    if ( !is_dir ( $aConfig[ 'data_dir' ] ) )
     {
-        if( !mkdir ( 'data', 0705 ) )
+        if( !mkdir ( $aConfig[ 'data_dir' ], 0705 ) )
         {
             echo json_encode( array( 'status' => 0, 'message' => 'Administrator has not set the write permissions to the paste directory.') );
             exit;
         }
 
-        file_put_contents ( 'data/.htaccess', "Allow from none\nDeny from all\n", LOCK_EX );
+        file_put_contents ( $aConfig[ 'data_dir' ].'/.htaccess', "Allow from none\nDeny from all\n", LOCK_EX );
     }
 
 // Make sure last paste from the IP address was more than 10 seconds ago.
@@ -220,9 +218,9 @@ if ( !empty( $_POST[ 'data' ] ) ) // Create new paste/comment
 
 // Make sure content is not too big.
     $data = $_POST[ 'data' ];
-    if ( strlen ( $data ) > 20 * 1024 * 1024 )
+    if ( strlen ( $data ) > $aConfig[ 'max_size' ] * 1024 * 1024 )
     {
-        echo json_encode ( array('status' => 1, 'message' => 'Paste is limited to 20MB of encrypted data.') );
+        echo json_encode ( array('status' => 1, 'message' => 'Paste is limited to '.$aConfig[ 'max_size' ].'MB of encrypted data.') );
         exit;
     }
 
@@ -294,7 +292,15 @@ if ( !empty( $_POST[ 'data' ] ) ) // Create new paste/comment
 
 // You can't have an open discussion on a "Burn after reading" paste:
     if ( isset( $meta[ 'burnafterreading' ] ) ) unset( $meta[ 'opendiscussion' ] );
-    $dataid = substr ( hash ( 'md5', $data ), 0, 16 );
+
+    if( $aConfig[ 'pasteid_len' ] <= 32)
+    {
+        $dataid = str_shuffle( substr ( hash ( 'md5', $data ), 0, $aConfig[ 'pasteid_len' ] ) );
+    }
+    else
+    {
+        $dataid = str_shuffle ( substr ( md5 ( $data ) . generateRandomString( $aConfig['pasteid_len'] , true) , 0, $aConfig[ 'pasteid_len' ] ) );
+    }
 
     $is_comment = ( !empty( $_POST[ 'parentid' ] ) && !empty( $_POST[ 'pasteid' ] ) ); // Is this post a comment ?
     $storage    = array('data' => $data);
@@ -312,12 +318,12 @@ if ( !empty( $_POST[ 'data' ] ) ) // Create new paste/comment
     {
         $pasteid  = $_POST[ 'pasteid' ];
         $parentid = $_POST[ 'parentid' ];
-        if ( !preg_match ( '/\A[a-f\d]{16}\z/', $pasteid ) )
+        if ( !preg_match ( '/\A[a-z0-9]+\z/', $pasteid ) )
         {
             echo json_encode ( array('status' => 1, 'message' => 'Invalid data.') );
             exit;
         }
-        if ( !preg_match ( '/\A[a-f\d]{16}\z/', $parentid ) )
+        if ( !preg_match ( '/\A[a-z0-9]+\z/', $parentid ) )
         {
             echo json_encode ( array('status' => 1, 'message' => 'Invalid data.') );
             exit;
@@ -359,7 +365,7 @@ if ( !empty( $_POST[ 'data' ] ) ) // Create new paste/comment
                 // If a nickname is provided, we generate a Vizhash.
                 // (We assume that if the user did not enter a nickname, he/she wants
                 // to be anonymous and we will not generate the vizhash.)
-            
+                
                 $vz      = new vizhash16x16();
                 $storage['meta'][ 'nickname' ] = $nick;
                 $pngdata = $vz->generate ( $_SERVER[ 'REMOTE_ADDR' ], getPasteSalt ( $pasteid ) );
@@ -391,17 +397,6 @@ if ( !empty( $_POST[ 'data' ] ) ) // Create new paste/comment
             exit;
         }
 
-
-
-// Optional nickname for comments
-
-
-// Add post date to meta.
-    
-
-// We just want a small hash to avoid collisions: Half-MD5 (64 bits) will do the trick.
-
-// New paste
         file_put_contents ( $storagedir.$dataid, json_encode ( $storage ), LOCK_EX );
 
 // Generate the "delete" token.
@@ -422,7 +417,7 @@ Returns an array ('',$ERRORMESSAGE,$STATUS)
 */
 function processPasteDelete ( $pasteid, $deletetoken )
 {
-    if ( preg_match ( '/\A[a-f\d]{16}\z/', $pasteid ) )  // Is this a valid paste identifier ?
+    if ( preg_match ( '/\A[a-z0-9]+{}\z/', $pasteid ) )  // Is this a valid paste identifier ?
     {
         $filename = dataid2path ( $pasteid ).$pasteid;
         if ( !is_file ( $filename ) ) // Check that paste exists.
@@ -450,7 +445,7 @@ Returns an array ($CIPHERDATA,$ERRORMESSAGE,$STATUS)
 */
 function processPasteFetch ( $pasteid )
 {
-    if ( preg_match ( '/\A[a-f\d]{16}\z/', $pasteid ) )  // Is this a valid paste identifier ?
+    if ( preg_match ( '/\A[a-z0-9]+\z/', $pasteid ) )  // Is this a valid paste identifier ?
     {
         $filename = dataid2path ( $pasteid ).$pasteid;
         if ( !is_file ( $filename ) ) // Check that paste exists.
@@ -528,7 +523,7 @@ require_once "lib/rain.tpl.class.php";
 header ( 'Content-Type: text/html; charset=utf-8' );
 $page = new RainTPL;
 $page->assign ( 'CIPHERDATA', htmlspecialchars ( $CIPHERDATA, ENT_NOQUOTES ) );  // We escape it here because ENT_NOQUOTES can't be used in RainTPL templates.
-$page->assign ( 'VERSION', $VERSION );
+$page->assign ( 'VERSION', $aConfig[ 'version' ] );
 $page->assign ( 'ERRORMESSAGE', $ERRORMESSAGE );
 $page->assign ( 'STATUS', $STATUS );
 $page->draw ( 'page' );

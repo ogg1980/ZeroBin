@@ -1,7 +1,7 @@
 <?php
 
 // Generate a large random hexadecimal salt.
-function generateRandomSalt()
+function generateRandomSalt($len = 128)
 {
     $randomSalt = NULL;
     if (function_exists("mcrypt_create_iv"))
@@ -10,20 +10,32 @@ function generateRandomSalt()
     }
     else 
     {
-        $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        $randomSalt = NULL;
-        for($i = 0; $i < 128; $i++) 
-        { 
-            $randomSalt .= $characters[mt_rand(0, strlen($characters) -1)];
-        }
+        generateRandomString($len);
     }
-    
+
     return $randomSalt;
+}
+
+function generateRandomString($len = 128, $lowercase_only = false)
+{
+    $characters = '0123456789abcdefghijklmnopqrstuvwxyz';
+
+    if(!$lowercase_only)
+    {
+        $characters .= 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    }
+
+    $string = NULL;
+    for($i = 0; $i < $len; $i++) 
+    { 
+        $string .= $characters[mt_rand(0, strlen($characters) -1)];
+    }
+    return $string;
 }
 
 function generateSaltFile($file)
 {
-    return file_put_contents($file,'<?php die(); /* |'.generateRandomSalt().'| */ ?>',LOCK_EX);
+    return file_put_contents($file,'<?php die(); /* |'.generateRandomSalt().'| */ ?>', LOCK_EX);
 }
 
 function getSaltFromFile($file)
@@ -37,22 +49,26 @@ function getSaltFromFile($file)
 
     $items = explode('|',file_get_contents($file));
     if(!isset($items[1]))
-return false; // ?
+        return false; // ?
 
-return $items[1];
+    return $items[1];
 }
 
 
 function getServerSalt()
 {
-    return getSaltFromFile('data/salt.php');
+    global $aConfig;
+
+    return getSaltFromFile( $aConfig[ 'data_dir' ]. '/salt.php' );
 }
 
 
 
-function getPasteSalt($pasteid)
+function getPasteSalt( $pasteid )
 {
-    $file = dataid2path ( $pasteid ).$pasteid."_salt.php";
+    global $aConfig;
+
+    $file = dataid2path ( $pasteid ).$pasteid.$aConfig[ 'salt_append '];
     return getSaltFromFile($file);
 }
 
