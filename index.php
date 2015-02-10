@@ -108,6 +108,7 @@ function validSJCL ( $jsonstring )
     $decoded = json_decode ( $jsonstring );
     if ( $decoded == NULL )
         return false;
+
     $decoded = (array)$decoded;
 
 // Make sure required fields are present
@@ -153,23 +154,31 @@ function validSJCL ( $jsonstring )
 // Input: $pasteid : the paste identifier.
 function deletePaste ( $pasteid )
 {
-// Delete the paste itself
-    unlink ( dataid2path ( $pasteid ).$pasteid );
+    $path = dataid2path ( $pasteid );
+    $dpath = dataid2discussionpath( $pasteid );
+// Delete the paste itself and the salt
+    unlink ( $path.$pasteid );
+    unlink ( $path.$pasteid."_salt.php");
 
 // Delete discussion if it exists.
-    $discdir = dataid2discussionpath ( $pasteid );
-    if ( is_dir ( $discdir ) )
+    if ( is_dir ( $dpath ) )
     {
 // Delete all files in discussion directory
-        $dhandle = opendir ( $discdir );
+        $dhandle = opendir ( $dpath );
         while ( false !== ( $filename = readdir ( $dhandle ) ) )
         {
-            if ( is_file ( $discdir.$filename ) ) unlink ( $discdir.$filename );
+            if ( is_file ( $dpath.$filename ) ) 
+                unlink ( $dpath.$filename );
         }
         closedir ( $dhandle );
 
 // Delete the discussion directory.
-        rmdir ( $discdir );
+        rmdir ( $dpath );
+    }
+
+    if ( count( glob( $path . "*" ) ) == 0 )
+    {
+        rmdir( $path );
     }
 }
 
@@ -221,6 +230,7 @@ if ( !empty( $_POST[ 'data' ] ) ) // Create new paste/comment
 
 // Read additional meta-information.
     $meta = array();
+    $meta[ 'postdate' ] = time ();
 
 // Read expiration date
     if ( !empty( $_POST[ 'expire' ] ) )
@@ -279,44 +289,19 @@ if ( !empty( $_POST[ 'data' ] ) ) // Create new paste/comment
 
 // You can't have an open discussion on a "Burn after reading" paste:
     if ( isset( $meta[ 'burnafterreading' ] ) ) unset( $meta[ 'opendiscussion' ] );
-
-// Optional nickname for comments
-    if ( !empty( $_POST[ 'nickname' ] ) )
-    {
-        $nick = $_POST[ 'nickname' ];
-        if ( !validSJCL ( $nick ) )
-        {
-            $error = true;
-        } else
-        {
-            $meta[ 'nickname' ] = $nick;
-
-// Generation of the anonymous avatar (Vizhash):
-// If a nickname is provided, we generate a Vizhash.
-// (We assume that if the user did not enter a nickname, he/she wants
-// to be anonymous and we will not generate the vizhash.)
-            $vz      = new vizhash16x16();
-            $pngdata = $vz->generate ( $_SERVER[ 'REMOTE_ADDR' ] );
-            if ( $pngdata != '' ) $meta[ 'vizhash' ] = 'data:image/png;base64,'.base64_encode ( $pngdata );
-// Once the avatar is generated, we do not keep the IP address, nor its hash.
-        }
-    }
-
-    if ( $error )
-    {
-        echo json_encode ( array('status' => 1, 'message' => 'Invalid data.') );
-        exit;
-    }
-
-// Add post date to meta.
-    $meta[ 'postdate' ] = time ();
-
-// We just want a small hash to avoid collisions: Half-MD5 (64 bits) will do the trick.
     $dataid = substr ( hash ( 'md5', $data ), 0, 16 );
 
     $is_comment = ( !empty( $_POST[ 'parentid' ] ) && !empty( $_POST[ 'pasteid' ] ) ); // Is this post a comment ?
     $storage    = array('data' => $data);
-    if ( count ( $meta ) > 0 ) $storage[ 'meta' ] = $meta;  // Add meta-information only if necessary.
+
+    // Add meta-information only if necessary.
+    if ( count ( $meta ) > 0 )
+    {
+        foreach( $meta as $index => $value )
+        {
+            $storage[ 'meta' ][ $index ] = $value;
+        }
+    }
 
     if ( $is_comment ) // The user posts a comment.
     {
@@ -333,11 +318,6 @@ if ( !empty( $_POST[ 'data' ] ) ) // Create new paste/comment
             exit;
         }
 
-        unset( $storage[ 'expire_date' ] ); // Comment do not expire (it's the paste that expires)
-        unset( $storage[ 'opendiscussion' ] );
-        unset( $storage[ 'syntaxcoloring' ] );
-
-// Make sure paste exists.
         $storagedir = dataid2path ( $pasteid );
         if ( !is_file ( $storagedir.$pasteid ) )
         {
@@ -345,7 +325,6 @@ if ( !empty( $_POST[ 'data' ] ) ) // Create new paste/comment
             exit;
         }
 
-// Make sure the discussion is opened in this paste.
         $paste = json_decode ( file_get_contents ( $storagedir.$pasteid ) );
         if ( !$paste->meta->opendiscussion )
         {
@@ -362,9 +341,41 @@ if ( !empty( $_POST[ 'data' ] ) ) // Create new paste/comment
             exit;
         }
 
+        if ( !empty( $_POST[ 'nickname' ] ) )
+        {
+            $nick = $_POST[ 'nickname' ];
+            if ( !validSJCL ( $nick ) )
+            {
+                $error = true;
+            } 
+            else
+            {
+                // Generation of the anonymous avatar (Vizhash):
+                // If a nickname is provided, we generate a Vizhash.
+                // (We assume that if the user did not enter a nickname, he/she wants
+                // to be anonymous and we will not generate the vizhash.)
+            
+                $vz      = new vizhash16x16();
+                $storage['meta'][ 'nickname' ] = $nick;
+                $pngdata = $vz->generate ( $_SERVER[ 'REMOTE_ADDR' ], getPasteSalt ( $pasteid ) );
+                if ( $pngdata != '' ) $storage['meta'][ 'vizhash' ] = 'data:image/png;base64,'.base64_encode ( $pngdata );
+            }
+        }
+
+        if ( $error )
+        {
+            echo json_encode ( array('status' => 1, 'message' => 'Invalid data.') );
+            exit;
+        }
+
+        unset( $storage[ 'expire_date' ] ); // Comment do not expire (it's the paste that expires)
+        unset( $storage[ 'opendiscussion' ] );
+        unset( $storage[ 'syntaxcoloring' ] );
+
         file_put_contents ( $discdir.$filename, json_encode ( $storage ), LOCK_EX );
         echo json_encode ( array('status' => 0, 'id' => $dataid) ); // 0 = no error
         exit;
+
     } else // a standard paste.
     {
         $storagedir = dataid2path ( $dataid );
@@ -374,13 +385,24 @@ if ( !empty( $_POST[ 'data' ] ) ) // Create new paste/comment
             echo json_encode ( array('status' => 1, 'message' => 'You are unlucky. Try again.') );
             exit;
         }
+
+
+
+// Optional nickname for comments
+
+
+// Add post date to meta.
+    
+
+// We just want a small hash to avoid collisions: Half-MD5 (64 bits) will do the trick.
+
 // New paste
         file_put_contents ( $storagedir.$dataid, json_encode ( $storage ), LOCK_EX );
 
 // Generate the "delete" token.
 // The token is the hmac of the pasteid signed with the server salt.
 // The paste can be delete by calling http://myserver.com/zerobin/?pasteid=<pasteid>&deletetoken=<deletetoken>
-        $deletetoken = hash_hmac ( 'sha1', $dataid, getServerSalt () );
+        $deletetoken = hash_hmac ( 'sha1', $dataid, getPasteSalt ($dataid) );
 
         echo json_encode ( array('status' => 0, 'id' => $dataid, 'deletetoken' => $deletetoken) ); // 0 = no error
         exit;
@@ -407,7 +429,7 @@ function processPasteDelete ( $pasteid, $deletetoken )
         return array('', 'Invalid data', '');
     }
 
-    if ( !slow_equals ( $deletetoken, hash_hmac ( 'sha1', $pasteid, getServerSalt () ) ) ) // Make sure token is valid.
+    if ( !slow_equals ( $deletetoken, hash_hmac ( 'sha1', $pasteid, getPasteSalt ($pasteid) ) ) ) // Make sure token is valid.
     {
         return array('', 'Wrong deletion token. Paste was not deleted.', '');
     }
