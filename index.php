@@ -27,6 +27,8 @@ if ( get_magic_quotes_gpc () )
 // Will return false if IP address made a call less than 10 seconds ago.
 function trafic_limiter_canPass ( $ip )
 {
+    $timelimit = 2;
+
     $tfilename = './data/trafic_limiter.php';
     if ( !is_file ( $tfilename ) )
     {
@@ -35,7 +37,7 @@ function trafic_limiter_canPass ( $ip )
     }
     require $tfilename;
     $tl = $GLOBALS[ 'trafic_limiter' ];
-    if ( !empty( $tl[ $ip ] ) && ( $tl[ $ip ] + 10 >= time () ) )
+    if ( !empty( $tl[ $ip ] ) && ( $tl[ $ip ] + $timelimit >= time () ) )
     {
         return false;
     } else
@@ -44,7 +46,7 @@ function trafic_limiter_canPass ( $ip )
     }
     foreach ( $tl as $k => $v )
     {
-        if ( $k != $ip && $v + 10 <= time () )
+        if ( $k != $ip && $v + $timelimit <= time () )
         {
             unset( $tl[ $k ] );
         }
