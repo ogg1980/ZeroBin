@@ -417,7 +417,7 @@ Returns an array ('',$ERRORMESSAGE,$STATUS)
 */
 function processPasteDelete ( $pasteid, $deletetoken )
 {
-    if ( preg_match ( '/\A[a-z0-9]+{}\z/', $pasteid ) )  // Is this a valid paste identifier ?
+    if ( preg_match ( '/\A[a-z0-9]+\z/', $pasteid ) )  // Is this a valid paste identifier ?
     {
         $filename = dataid2path ( $pasteid ).$pasteid;
         if ( !is_file ( $filename ) ) // Check that paste exists.
