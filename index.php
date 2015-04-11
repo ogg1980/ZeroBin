@@ -200,9 +200,11 @@ if ( !empty( $_POST[ 'data' ] ) ) // Create new paste/comment
 // Create storage directory if it does not exist.
     if ( !is_dir ( $aConfig[ 'data_dir' ] ) )
     {
-        if( !mkdir ( $aConfig[ 'data_dir' ], 0705 ) )
+        mkdir ( $aConfig[ 'data_dir' ], 0600 );
+        
+        if ( !is_dir ( $aConfig[ 'data_dir' ] ) )
         {
-            echo json_encode( array( 'status' => 0, 'message' => 'Administrator has not set the write permissions to the paste directory.') );
+            echo json_encode( array( 'status' => 0, 'message' => 'Administrator has not set the write permissions to the pastebin directory.') );
             exit;
         }
 
