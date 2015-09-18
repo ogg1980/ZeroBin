@@ -1,8 +1,8 @@
 /*
  * $Id: base64.js,v 2.15 2014/04/05 12:58:57 dankogai Exp dankogai $
  *
- *  Licensed under the MIT license.
- *    http://opensource.org/licenses/mit-license
+ *  Licensed under the BSD 3-Clause License.
+ *    http://opensource.org/licenses/BSD-3-Clause
  *
  *  References:
  *    http://en.wikipedia.org/wiki/Base64
@@ -12,11 +12,13 @@
     'use strict';
     // existing version for noConflict()
     var _Base64 = global.Base64;
-    var version = "2.1.8";
+    var version = "2.1.9";
     // if node.js, we use Buffer
     var buffer;
     if (typeof module !== 'undefined' && module.exports) {
-        buffer = require('buffer').Buffer;
+        try {
+            buffer = require('buffer').Buffer;
+        } catch (err) {}
     }
     // constants
     var b64chars
