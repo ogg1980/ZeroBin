@@ -4,3 +4,4 @@ tmp/*.php
 # Ignore for safety
 .htaccess
 .htpasswd
+.idea/
